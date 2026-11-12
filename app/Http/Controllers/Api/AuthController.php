@@ -12,31 +12,13 @@ use Illuminate\Validation\ValidationException;
 class AuthController extends Controller
 {
     /**
-     * Register a new user.
+     * Register a new user (Self-registration is disabled; user creation is managed by Admin).
      */
     public function register(Request $request): JsonResponse
     {
-        $validated = $request->validate([
-            'name' => 'required|string|max:255',
-            'email' => 'required|string|email|max:255|unique:users',
-            'password' => 'required|string|min:6',
-            'primary_currency' => 'nullable|string|max:10',
-        ]);
-
-        $user = User::create([
-            'name' => $validated['name'],
-            'email' => $validated['email'],
-            'password' => Hash::make($validated['password']),
-            'primary_currency' => $validated['primary_currency'] ?? 'IDR',
-        ]);
-
-        $token = $user->createToken('auth_token')->plainTextToken;
-
         return response()->json([
-            'message' => 'Registrasi berhasil',
-            'user' => $user,
-            'token' => $token,
-        ], 201);
+            'message' => 'Pendaftaran mandiri dinonaktifkan. Akun baru hanya dapat didaftarkan oleh Administrator.',
+        ], 403);
     }
 
     /**

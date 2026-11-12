@@ -24,12 +24,24 @@ class DatabaseSeeder extends Seeder
     {
         $this->call(CategorySeeder::class);
 
+        // Admin User
+        $admin = User::firstOrCreate(
+            ['email' => 'admin@planit.app'],
+            [
+                'name' => 'Administrator PlanIt',
+                'password' => Hash::make('admin123'),
+                'role' => 'admin',
+                'primary_currency' => 'IDR',
+            ]
+        );
+
         // Demo User for Testing
         $user = User::firstOrCreate(
             ['email' => 'demo@planit.app'],
             [
                 'name' => 'Budi Pratama',
                 'password' => Hash::make('password123'),
+                'role' => 'user',
                 'primary_currency' => 'IDR',
             ]
         );
