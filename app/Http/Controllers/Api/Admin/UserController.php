@@ -136,6 +136,7 @@ class UserController extends Controller
             ], 422);
         }
 
+        $user->tokens()->delete();
         $user->delete();
 
         return response()->json([
