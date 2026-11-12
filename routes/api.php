@@ -84,8 +84,11 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
-    // Admin User Management (Role: Admin Only)
+    // Admin Management (Role: Admin Only)
     Route::middleware('admin')->prefix('admin')->group(function () {
+        Route::get('/dashboard', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats']);
         Route::apiResource('users', \App\Http\Controllers\Api\Admin\UserController::class);
+        Route::apiResource('categories', \App\Http\Controllers\Api\Admin\CategoryController::class);
+        Route::get('/transactions', [\App\Http\Controllers\Api\Admin\TransactionController::class, 'index']);
     });
 });
