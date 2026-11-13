@@ -55,19 +55,28 @@ class AiController extends Controller
             'history' => 'nullable|array',
         ]);
 
-        $result = $this->aiService->financialChat(
-            $request->user(),
-            $validated['message'],
-            $validated['history'] ?? []
-        );
+        try {
+            $result = $this->aiService->financialChat(
+                $request->user(),
+                $validated['message'],
+                $validated['history'] ?? []
+            );
 
-        return response()->json([
-            'success' => true,
-            'reply' => $result['reply'],
-            'is_ai_live' => $result['is_ai_live'] ?? false,
-            'quick_suggestions' => $result['quick_suggestions'] ?? [],
-            'ai_notice' => $result['ai_notice'] ?? null,
-        ]);
+            return response()->json([
+                'success' => true,
+                'reply' => $result['reply'],
+                'is_ai_live' => $result['is_ai_live'] ?? false,
+                'quick_suggestions' => $result['quick_suggestions'] ?? [],
+                'ai_notice' => $result['ai_notice'] ?? null,
+            ]);
+        } catch (\Throwable $e) {
+            \Illuminate\Support\Facades\Log::error('AI Chat Error: ' . $e->getMessage());
+
+            return response()->json([
+                'success' => false,
+                'message' => 'Gagal memproses pesan AI: ' . $e->getMessage(),
+            ], 500);
+        }
     }
 }
 

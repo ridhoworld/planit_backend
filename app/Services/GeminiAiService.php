@@ -239,7 +239,7 @@ SYS;
     protected function buildUserFinancialContext(User $user): array
     {
         $userId = $user->id;
-        $currency = $user->primaryCurrency ?? 'IDR';
+        $currency = $user->primary_currency ?? $user->primaryCurrency ?? 'IDR';
 
         // Accounts
         $accounts = \App\Models\Account::where('user_id', $userId)->where('is_active', true)->get();
@@ -269,7 +269,7 @@ SYS;
 
         // Budgets
         $budgets = \App\Models\Budget::where('user_id', $userId)
-            ->where('period_type', 'monthly')
+            ->where('period', 'monthly')
             ->with('category')
             ->get();
         $bList = [];

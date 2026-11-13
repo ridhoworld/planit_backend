@@ -39,6 +39,21 @@ class AiFeatureTest extends TestCase
     {
         $user = User::factory()->create(['name' => 'Budi Santoso']);
 
+        $category = \App\Models\Category::create([
+            'user_id' => $user->id,
+            'name' => 'Makanan',
+            'type' => 'expense',
+        ]);
+
+        \App\Models\Budget::create([
+            'user_id' => $user->id,
+            'category_id' => $category->id,
+            'amount_limit' => 2000000,
+            'period' => 'monthly',
+            'start_date' => now()->startOfMonth(),
+            'end_date' => now()->endOfMonth(),
+        ]);
+
         $response = $this->actingAs($user)->postJson('/api/ai/chat', [
             'message' => 'Bagaimana kondisi keuangan saya saat ini?',
             'history' => [],
