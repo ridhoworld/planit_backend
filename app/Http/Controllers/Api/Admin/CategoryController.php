@@ -10,25 +10,44 @@ use Illuminate\Http\Request;
 class CategoryController extends Controller
 {
     /**
-     * List all master categories (user_id is null).
+     * List categories with scope filter: 'all', 'master' (user_id is null), or 'custom' (user_id is not null).
      */
     public function index(Request $request): JsonResponse
     {
-        $query = Category::whereNull('user_id')->with('parent');
+        $query = Category::with(['parent', 'user:id,name,email']);
+
+        $scope = $request->query('scope', 'all');
+        if ($scope === 'master') {
+            $query->whereNull('user_id');
+        } elseif ($scope === 'custom') {
+            $query->whereNotNull('user_id');
+        }
 
         if ($request->filled('type')) {
             $query->where('type', $request->type);
         }
 
         if ($request->filled('search')) {
-            $query->where('name', 'like', "%{$request->search}%");
+            $search = $request->search;
+            $query->where(function ($q) use ($search) {
+                $q->where('name', 'like', "%{$search}%")
+                  ->orWhereHas('user', function ($uq) use ($search) {
+                      $uq->where('name', 'like', "%{$search}%")
+                         ->orWhere('email', 'like', "%{$search}%");
+                  });
+            });
         }
 
         $categories = $query->orderBy('type')->orderBy('name')->get();
 
+        $masterCount = Category::whereNull('user_id')->count();
+        $customCount = Category::whereNotNull('user_id')->count();
+
         return response()->json([
             'categories' => $categories,
             'total' => $categories->count(),
+            'master_count' => $masterCount,
+            'custom_count' => $customCount,
         ]);
     }
 
@@ -62,11 +81,27 @@ class CategoryController extends Controller
     }
 
     /**
-     * Update an existing master category.
+     * Promote a user's custom category to become a master category.
+     */
+    public function promoteToMaster(int $id): JsonResponse
+    {
+        $category = Category::with('user')->findOrFail($id);
+        $oldUserName = $category->user ? $category->user->name : 'Pengguna';
+        $category->user_id = null;
+        $category->save();
+
+        return response()->json([
+            'message' => "Kategori \"{$category->name}\" dari {$oldUserName} berhasil diubah menjadi Kategori Master Sistem!",
+            'category' => $category->fresh()->load('parent'),
+        ]);
+    }
+
+    /**
+     * Update an existing category.
      */
     public function update(Request $request, int $id): JsonResponse
     {
-        $category = Category::whereNull('user_id')->findOrFail($id);
+        $category = Category::findOrFail($id);
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
@@ -80,22 +115,21 @@ class CategoryController extends Controller
         $category->update($validated);
 
         return response()->json([
-            'message' => 'Kategori master berhasil diperbarui',
+            'message' => 'Kategori berhasil diperbarui',
             'category' => $category->fresh()->load('parent'),
         ]);
     }
 
     /**
-     * Delete a master category.
+     * Delete a category.
      */
     public function destroy(int $id): JsonResponse
     {
-        $category = Category::whereNull('user_id')->findOrFail($id);
+        $category = Category::findOrFail($id);
         $category->delete();
 
         return response()->json([
-            'message' => 'Kategori master berhasil dihapus',
+            'message' => 'Kategori berhasil dihapus',
         ]);
     }
 }
-

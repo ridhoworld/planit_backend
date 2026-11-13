@@ -88,6 +88,7 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats']);
         Route::apiResource('users', \App\Http\Controllers\Api\Admin\UserController::class);
+        Route::post('categories/{id}/promote', [\App\Http\Controllers\Api\Admin\CategoryController::class, 'promoteToMaster']);
         Route::apiResource('categories', \App\Http\Controllers\Api\Admin\CategoryController::class);
         Route::get('/transactions', [\App\Http\Controllers\Api\Admin\TransactionController::class, 'index']);
     });

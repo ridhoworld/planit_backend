@@ -81,5 +81,33 @@ class AdminUserTest extends TestCase
         $response->assertStatus(422);
         $this->assertDatabaseHas('users', ['id' => $admin->id]);
     }
+
+    public function test_admin_can_view_and_promote_custom_category(): void
+    {
+        $admin = User::factory()->create(['role' => 'admin']);
+        $user = User::factory()->create(['role' => 'user']);
+
+        // User creates a custom category
+        $customCat = \App\Models\Category::create([
+            'user_id' => $user->id,
+            'name' => 'Koleksi Action Figure',
+            'type' => 'expense',
+            'is_active' => true,
+        ]);
+
+        // Admin views all categories
+        $res = $this->actingAs($admin)->getJson('/api/admin/categories?scope=custom');
+        $res->assertStatus(200);
+        $res->assertJsonFragment(['name' => 'Koleksi Action Figure']);
+
+        // Admin promotes it to master
+        $promoteRes = $this->actingAs($admin)->postJson("/api/admin/categories/{$customCat->id}/promote");
+        $promoteRes->assertStatus(200);
+
+        $this->assertDatabaseHas('categories', [
+            'id' => $customCat->id,
+            'user_id' => null,
+        ]);
+    }
 }
 
