@@ -84,6 +84,10 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::post('/notifications/{id}/read', [NotificationController::class, 'markAsRead']);
     Route::post('/notifications/read-all', [NotificationController::class, 'markAllAsRead']);
 
+    // AI Features (Smart Receipt Scanner & AI Financial Copilot)
+    Route::post('/ai/scan-receipt', [\App\Http\Controllers\Api\AiController::class, 'scanReceipt']);
+    Route::post('/ai/chat', [\App\Http\Controllers\Api\AiController::class, 'chat']);
+
     // Admin Management (Role: Admin Only)
     Route::middleware('admin')->prefix('admin')->group(function () {
         Route::get('/dashboard', [\App\Http\Controllers\Api\Admin\DashboardController::class, 'stats']);
