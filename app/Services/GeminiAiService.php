@@ -42,6 +42,7 @@ class GeminiAiService
             return ['id' => $c['id'], 'name' => $c['name'], 'type' => $c['type']];
         }, $categories));
 
+        $apiError = null;
         if ($this->hasApiKey()) {
             try {
                 $cleanBase64 = preg_replace('#^data:image/\w+;base64,#i', '', $base64Image);
@@ -101,21 +102,23 @@ PROMPT;
                         return $parsed;
                     }
                 } else {
-                    Log::warning('Gemini Receipt Scan Error: ' . $response->body());
+                    $apiError = "HTTP " . $response->status() . ": " . $response->body();
+                    Log::warning('Gemini Receipt Scan Error: ' . $apiError);
                 }
             } catch (\Exception $e) {
-                Log::error('Gemini Receipt Scan Exception: ' . $e->getMessage());
+                $apiError = $e->getMessage();
+                Log::error('Gemini Receipt Scan Exception: ' . $apiError);
             }
         }
 
         // Smart Heuristic Fallback when API key is not present or offline
-        return $this->heuristicReceiptFallback($categories);
+        return $this->heuristicReceiptFallback($categories, $apiError);
     }
 
     /**
      * Fallback receipt parsing simulator for seamless development & demo.
      */
-    protected function heuristicReceiptFallback(array $categories): array
+    protected function heuristicReceiptFallback(array $categories, ?string $apiError = null): array
     {
         $defaultCat = !empty($categories) ? $categories[0] : ['id' => 1, 'name' => 'Belanja & Kebutuhan'];
         // Pick groceries or food if available
@@ -126,21 +129,25 @@ PROMPT;
             }
         }
 
+        $notice = empty($this->apiKey)
+            ? 'GEMINI_API_KEY belum dipasang di backend/.env. Hasil nominal diisi contoh Rp 45.000 (Mode Simulasi).'
+            : ($apiError ? "Gagal menghubungi Gemini API ({$apiError}). Beralih ke data simulasi." : 'Mode simulasi bawaan.');
+
         return [
-            'merchant' => 'Minimarket / Merchant Terdeteksi',
+            'merchant' => 'Minimarket (Simulasi)',
             'amount' => 45000,
             'date' => date('Y-m-d'),
             'type' => 'expense',
             'suggested_category_id' => $defaultCat['id'],
             'suggested_category_name' => $defaultCat['name'],
-            'notes' => 'Pembelian belanja harian (Hasil AI Smart Scan)',
+            'notes' => 'Pembelian harian (Hasil Mode Simulasi)',
             'items' => [
                 ['name' => 'Bahan Makanan / Snack', 'price' => 30000, 'qty' => 1],
                 ['name' => 'Minuman Dingin', 'price' => 15000, 'qty' => 1],
             ],
-            'confidence' => 0.88,
+            'confidence' => 0.5,
             'is_ai_live' => false,
-            'ai_notice' => 'Hasil pindaian cerdas (Mode Cepat). Untuk OCR langsung via Google Gemini Vision, tambahkan GEMINI_API_KEY di backend/.env.',
+            'ai_notice' => $notice,
         ];
     }
 
