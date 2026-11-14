@@ -10,11 +10,33 @@ use Illuminate\Support\Facades\Log;
 class GeminiAiService
 {
     protected ?string $apiKey;
+    protected string $model;
     protected string $baseUrl = 'https://generativelanguage.googleapis.com/v1beta/models';
 
     public function __construct()
     {
         $this->apiKey = config('services.gemini.key') ?? env('GEMINI_API_KEY');
+        $this->model = env('GEMINI_MODEL', 'gemini-flash-lite-latest');
+    }
+
+    /**
+     * Call generateContent with auto-fallback across compatible models.
+     */
+    protected function callGenerateContent(array $payload): ?\Illuminate\Http\Client\Response
+    {
+        $models = array_unique([$this->model, 'gemini-flash-lite-latest', 'gemini-flash-latest', 'gemini-1.5-flash']);
+        foreach ($models as $m) {
+            try {
+                $response = Http::timeout(30)->post("{$this->baseUrl}/{$m}:generateContent?key={$this->apiKey}", $payload);
+                if ($response->successful()) {
+                    return $response;
+                }
+                Log::info("Gemini model {$m} returned HTTP " . $response->status());
+            } catch (\Exception $e) {
+                Log::warning("Gemini model {$m} failed: " . $e->getMessage());
+            }
+        }
+        return null;
     }
 
     /**
@@ -72,7 +94,7 @@ Ekstrak informasi berikut dan WAJIB kembalikan dalam format JSON murni:
 Jika gambar buram atau bukan bukti keuangan, berikan tebakan terbaik dengan confidence rendah.
 PROMPT;
 
-                $response = Http::timeout(30)->post("{$this->baseUrl}/gemini-1.5-flash:generateContent?key={$this->apiKey}", [
+                $response = $this->callGenerateContent([
                     'contents' => [
                         [
                             'parts' => [
@@ -92,7 +114,7 @@ PROMPT;
                     ],
                 ]);
 
-                if ($response->successful()) {
+                if ($response && $response->successful()) {
                     $json = $response->json();
                     $text = $json['candidates'][0]['content']['parts'][0]['text'] ?? '{}';
                     $parsed = json_decode($text, true);
@@ -102,7 +124,7 @@ PROMPT;
                         return $parsed;
                     }
                 } else {
-                    $apiError = "HTTP " . $response->status() . ": " . $response->body();
+                    $apiError = "Koneksi Google API tidak berhasil";
                     Log::warning('Gemini Receipt Scan Error: ' . $apiError);
                 }
             } catch (\Exception $e) {
@@ -210,7 +232,7 @@ SYS;
                     'parts' => [['text' => $userMessage]],
                 ];
 
-                $response = Http::timeout(30)->post("{$this->baseUrl}/gemini-1.5-flash:generateContent?key={$this->apiKey}", [
+                $response = $this->callGenerateContent([
                     'contents' => $contents,
                     'generationConfig' => [
                         'temperature' => 0.7,
@@ -218,7 +240,7 @@ SYS;
                     ],
                 ]);
 
-                if ($response->successful()) {
+                if ($response && $response->successful()) {
                     $json = $response->json();
                     $reply = $json['candidates'][0]['content']['parts'][0]['text'] ?? '';
                     if (!empty($reply)) {
@@ -229,7 +251,7 @@ SYS;
                         ];
                     }
                 } else {
-                    Log::warning('Gemini Chat Error: ' . $response->body());
+                    Log::warning('Gemini Chat Error: Model calls unsuccessful');
                 }
             } catch (\Exception $e) {
                 Log::error('Gemini Chat Exception: ' . $e->getMessage());
