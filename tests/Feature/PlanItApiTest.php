@@ -69,5 +69,44 @@ class PlanItApiTest extends TestCase
         $account->refresh();
         $this->assertEquals($initialBalance - 50000, $account->current_balance);
     }
+
+    public function test_50_30_20_allocation_calculation_and_auto_budgets(): void
+    {
+        $user = User::where('email', 'demo@planit.app')->first();
+
+        // 1. Update allocation settings with 10,000,000 monthly income target & auto-generate budgets
+        $response = $this->actingAs($user)->postJson('/api/budgets/allocation-settings', [
+            'monthly_income_target' => 10000000,
+            'needs_ratio' => 50,
+            'wants_ratio' => 30,
+            'savings_ratio' => 20,
+            'auto_generate_budgets' => true,
+        ]);
+
+        $response->assertStatus(200)
+            ->assertJsonPath('allocation_50_30_20.base_income', 10000000)
+            ->assertJsonPath('allocation_50_30_20.needs.limit', 5000000)
+            ->assertJsonPath('allocation_50_30_20.wants.limit', 3000000)
+            ->assertJsonPath('allocation_50_30_20.savings.target', 2000000);
+
+        $this->assertGreaterThan(0, $response->json('generated_budgets_count'));
+
+        // 2. Verify GET /api/budgets includes allocation_50_30_20
+        $budgetRes = $this->actingAs($user)->getJson('/api/budgets');
+        $budgetRes->assertStatus(200)
+            ->assertJsonStructure([
+                'budgets',
+                'total_limit',
+                'total_spent',
+                'allocation_50_30_20' => [
+                    'base_income',
+                    'ratios',
+                    'needs',
+                    'wants',
+                    'savings',
+                    'recommendation',
+                ],
+            ]);
+    }
 }
 

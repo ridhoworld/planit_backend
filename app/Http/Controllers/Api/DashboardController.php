@@ -131,6 +131,9 @@ class DashboardController extends Controller
                 ];
             });
 
+        $allocationService = app(\App\Services\AllocationService::class);
+        $allocation503020 = $allocationService->calculateMonthlyAllocation($user);
+
         return response()->json([
             'net_worth' => $netWorth,
             'total_balance' => $totalLiquidBalance,
@@ -144,6 +147,7 @@ class DashboardController extends Controller
             'budgets_preview' => $budgets,
             'upcoming_bills' => $upcomingBills,
             'goals_preview' => $goals,
+            'allocation_50_30_20' => $allocation503020,
         ]);
     }
 

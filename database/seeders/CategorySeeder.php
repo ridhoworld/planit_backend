@@ -88,15 +88,27 @@ class CategorySeeder extends Seeder
         ];
 
         foreach ($expenseCategories as $item) {
+            $parentGroup = Category::inferAllocationGroup($item['name'], 'expense');
             $parent = Category::firstOrCreate(
                 ['user_id' => null, 'name' => $item['name'], 'type' => 'expense'],
-                ['icon' => $item['icon'], 'color' => $item['color'], 'is_active' => true]
+                [
+                    'icon' => $item['icon'],
+                    'color' => $item['color'],
+                    'allocation_group' => $parentGroup,
+                    'is_active' => true,
+                ]
             );
 
             foreach ($item['subs'] as $subName) {
+                $subGroup = Category::inferAllocationGroup($subName, 'expense');
                 Category::firstOrCreate(
                     ['user_id' => null, 'name' => $subName, 'type' => 'expense', 'parent_id' => $parent->id],
-                    ['icon' => $item['icon'], 'color' => $item['color'], 'is_active' => true]
+                    [
+                        'icon' => $item['icon'],
+                        'color' => $item['color'],
+                        'allocation_group' => $subGroup,
+                        'is_active' => true,
+                    ]
                 );
             }
         }

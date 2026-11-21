@@ -194,6 +194,7 @@ DATA KONDISI KEUANGAN PENGGUNA SAAT INI:
 - Pemasukan Bulan Ini: {$context['formatted_monthly_income']}
 - Pengeluaran Bulan Ini: {$context['formatted_monthly_expense']}
 - Tabungan Bersih Bulan Ini (Net Savings): {$context['formatted_net_savings']} (Rasio Tabungan: {$context['savings_rate']}%)
+- Alokasi Aturan 50/30/20 (Kebutuhan Pokok / Keinginan / Saving): {$context['allocation_50_30_20_summary']}
 - Status Anggaran (Budgets): {$context['budgets_summary']}
 - Target Tabungan (Financial Goals): {$context['goals_summary']}
 - Tagihan / Transaksi Rutin Mendatang: {$context['recurring_summary']}
@@ -341,6 +342,16 @@ SYS;
         }
         $recurringSummary = empty($bSummaryList) ? 'Tidak ada tagihan mendesak dalam 30 hari' : implode('; ', $bSummaryList);
 
+        // 50/30/20 Allocation Summary
+        $alloc = app(\App\Services\AllocationService::class)->calculateMonthlyAllocation($user);
+        $nPct = $alloc['needs']['share_of_income'];
+        $wPct = $alloc['wants']['share_of_income'];
+        $sPct = $alloc['savings']['share_of_income'];
+        $nSpent = number_format($alloc['needs']['spent'], 0, ',', '.');
+        $wSpent = number_format($alloc['wants']['spent'], 0, ',', '.');
+        $sSaved = number_format($alloc['savings']['saved'], 0, ',', '.');
+        $allocSummary = "Target {$alloc['ratios']['needs']}%/{$alloc['ratios']['wants']}%/{$alloc['ratios']['savings']}% | Realisasi: Kebutuhan Pokok Rp {$nSpent} ({$nPct}%), Keinginan Rp {$wSpent} ({$wPct}%), Saving Rp {$sSaved} ({$sPct}%) — {$alloc['recommendation']}";
+
         return [
             'currency' => $currency,
             'formatted_net_worth' => 'Rp ' . number_format($totalBalance, 0, ',', '.'),
@@ -349,6 +360,7 @@ SYS;
             'formatted_monthly_expense' => 'Rp ' . number_format($monthlyExpense, 0, ',', '.'),
             'formatted_net_savings' => 'Rp ' . number_format($netSavings, 0, ',', '.'),
             'savings_rate' => $savingsRate,
+            'allocation_50_30_20_summary' => $allocSummary,
             'budgets_summary' => $budgetsSummary,
             'goals_summary' => $goalsSummary,
             'recurring_summary' => $recurringSummary,
@@ -366,13 +378,13 @@ SYS;
     {
         $q = strtolower($query);
 
-        if (str_contains($q, 'anggaran') || str_contains($q, 'budget') || str_contains($q, 'boros')) {
-            $reply = "### 📊 Analisis Anggaran Bulan Ini\n\n";
-            $reply .= "Berikut adalah status pos anggaran Anda saat ini:\n";
-            $reply .= "• **Status Kategori**: {$context['budgets_summary']}\n\n";
+        if (str_contains($q, '50/30/20') || str_contains($q, 'alokasi') || str_contains($q, 'kebutuhan') || str_contains($q, 'keinginan') || str_contains($q, 'anggaran') || str_contains($q, 'budget') || str_contains($q, 'boros')) {
+            $reply = "### 📊 Analisis Alokasi 50/30/20 & Anggaran Bulan Ini\n\n";
+            $reply .= "• **Evaluasi 50/30/20**: {$context['allocation_50_30_20_summary']}\n";
+            $reply .= "• **Status Anggaran Kategori**: {$context['budgets_summary']}\n\n";
             $reply .= "**Rekomendasi Tindakan:**\n";
-            $reply .= "1. Prioritaskan pos kebutuhan pokok dan tunda pengeluaran impulsif pada kategori yang mendekati batas 80%.\n";
-            $reply .= "2. Manfaatkan fitur *Notifikasi Anggaran* agar Anda segera diperingatkan saat sisa anggaran menipis.";
+            $reply .= "1. Jaga pos **Kebutuhan Pokok (50%)** tetap efisien dan batasi pos **Keinginan (30%)** agar tidak menggerus porsi **Saving (20%)**.\n";
+            $reply .= "2. Gunakan fitur **Bagi Otomatis 50/30/20** di menu Anggaran untuk mendistribusikan batas pengeluaran bulanan secara proporsional.";
         } elseif (str_contains($q, 'target') || str_contains($q, 'nabung') || str_contains($q, 'goal')) {
             $reply = "### 🎯 Progres Target Finansial Anda\n\n";
             $reply .= "• **Target Tabungan Aktif**: {$context['goals_summary']}\n";

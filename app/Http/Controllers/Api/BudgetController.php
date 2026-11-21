@@ -6,18 +6,27 @@ use App\Http\Controllers\Controller;
 use App\Models\Budget;
 use App\Models\Category;
 use App\Models\Transaction;
+use App\Services\AllocationService;
 use Carbon\Carbon;
 use Illuminate\Http\JsonResponse;
 use Illuminate\Http\Request;
 
 class BudgetController extends Controller
 {
+    protected AllocationService $allocationService;
+
+    public function __construct(AllocationService $allocationService)
+    {
+        $this->allocationService = $allocationService;
+    }
+
     /**
-     * Display budgets with real-time spent and progress calculation.
+     * Display budgets with real-time spent, progress calculation, and 50/30/20 allocation summary.
      */
     public function index(Request $request): JsonResponse
     {
-        $userId = $request->user()->id;
+        $user = $request->user();
+        $userId = $user->id;
         $budgets = Budget::where('user_id', $userId)->with('category')->get();
 
         $budgetData = $budgets->map(function ($budget) use ($userId) {
@@ -63,11 +72,69 @@ class BudgetController extends Controller
 
         $totalBudgetLimit = $budgetData->sum('amount_limit');
         $totalSpent = $budgetData->sum('spent_amount');
+        $allocation = $this->allocationService->calculateMonthlyAllocation($user);
 
         return response()->json([
             'budgets' => $budgetData,
             'total_limit' => $totalBudgetLimit,
             'total_spent' => $totalSpent,
+            'allocation_50_30_20' => $allocation,
+        ]);
+    }
+
+    /**
+     * Update user's 50/30/20 allocation preferences (monthly income baseline, custom ratios, and optional auto-budget generation).
+     */
+    public function updateAllocationSettings(Request $request): JsonResponse
+    {
+        $validated = $request->validate([
+            'monthly_income_target' => 'nullable|numeric|min:0',
+            'needs_ratio' => 'nullable|integer|min:10|max:80',
+            'wants_ratio' => 'nullable|integer|min:5|max:70',
+            'savings_ratio' => 'nullable|integer|min:5|max:70',
+            'auto_generate_budgets' => 'nullable|boolean',
+        ]);
+
+        $user = $request->user();
+
+        $needs = $validated['needs_ratio'] ?? ($user->needs_ratio ?? 50);
+        $wants = $validated['wants_ratio'] ?? ($user->wants_ratio ?? 30);
+        $savings = $validated['savings_ratio'] ?? ($user->savings_ratio ?? 20);
+
+        if (($needs + $wants + $savings) !== 100) {
+            return response()->json([
+                'message' => 'Total persentase Kebutuhan + Keinginan + Saving harus berjumlah tepat 100%.',
+            ], 422);
+        }
+
+        $user->update([
+            'monthly_income_target' => array_key_exists('monthly_income_target', $validated)
+                ? ($validated['monthly_income_target'] ?? 0)
+                : ($user->monthly_income_target ?? 0),
+            'needs_ratio' => $needs,
+            'wants_ratio' => $wants,
+            'savings_ratio' => $savings,
+        ]);
+
+        $allocation = $this->allocationService->calculateMonthlyAllocation($user->fresh());
+        $generatedCount = 0;
+
+        if (!empty($validated['auto_generate_budgets'])) {
+            $baseIncome = (float) ($allocation['base_income'] ?? 0);
+            if ($baseIncome <= 0) {
+                return response()->json([
+                    'message' => 'Masukkan Target Pemasukan Bulanan atau catat pemasukan terlebih dahulu untuk membagi anggaran kategori otomatis.',
+                ], 422);
+            }
+            $generatedCount = $this->allocationService->autoGenerateCategoryBudgets($user->fresh(), $baseIncome);
+        }
+
+        return response()->json([
+            'message' => $generatedCount > 0
+                ? "Alokasi {$needs}/{$wants}/{$savings} disimpan & {$generatedCount} anggaran kategori berhasil dibuat otomatis!"
+                : "Pengaturan alokasi {$needs}/{$wants}/{$savings} berhasil diperbarui.",
+            'allocation_50_30_20' => $this->allocationService->calculateMonthlyAllocation($user->fresh()),
+            'generated_budgets_count' => $generatedCount,
         ]);
     }
 

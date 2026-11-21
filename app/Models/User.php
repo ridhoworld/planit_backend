@@ -17,6 +17,10 @@ class User extends Authenticatable
         'password',
         'role',
         'primary_currency',
+        'monthly_income_target',
+        'needs_ratio',
+        'wants_ratio',
+        'savings_ratio',
     ];
 
     public function isAdmin(): bool

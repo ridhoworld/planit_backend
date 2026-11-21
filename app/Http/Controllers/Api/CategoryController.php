@@ -56,6 +56,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => 'required|string|max:255',
             'type' => 'required|in:income,expense',
+            'allocation_group' => 'nullable|in:needs,wants,savings',
             'parent_id' => 'nullable|exists:categories,id',
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',
@@ -63,6 +64,9 @@ class CategoryController extends Controller
 
         $validated['user_id'] = $request->user()->id;
         $validated['is_active'] = true;
+        if (empty($validated['allocation_group'])) {
+            $validated['allocation_group'] = Category::inferAllocationGroup($validated['name'], $validated['type']);
+        }
 
         $category = Category::create($validated);
 
@@ -83,6 +87,7 @@ class CategoryController extends Controller
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
+            'allocation_group' => 'nullable|in:needs,wants,savings',
             'parent_id' => 'nullable|exists:categories,id',
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',

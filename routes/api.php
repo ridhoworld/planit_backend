@@ -54,7 +54,8 @@ Route::middleware('auth:sanctum')->group(function () {
     Route::apiResource('transactions', TransactionController::class);
     Route::post('/transactions/{id}/receipt', [TransactionController::class, 'uploadReceipt']);
 
-    // Budgets
+    // Budgets & 50/30/20 Allocation
+    Route::post('/budgets/allocation-settings', [BudgetController::class, 'updateAllocationSettings']);
     Route::apiResource('budgets', BudgetController::class)->except(['show']);
 
     // Recurring Bills & Subscriptions
