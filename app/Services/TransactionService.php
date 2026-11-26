@@ -137,7 +137,7 @@ class TransactionService
                 'type' => $type,
                 'amount' => $amount,
                 'transaction_date' => $data['transaction_date'] ?? $transaction->transaction_date,
-                'notes' => $data['notes'] ?? $transaction->notes,
+                'notes' => array_key_exists('notes', $data) ? $data['notes'] : $transaction->notes,
                 'receipt_path' => $data['receipt_path'] ?? $transaction->receipt_path,
             ]);
 

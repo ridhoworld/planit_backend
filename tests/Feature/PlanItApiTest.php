@@ -68,6 +68,24 @@ class PlanItApiTest extends TestCase
 
         $account->refresh();
         $this->assertEquals($initialBalance - 50000, $account->current_balance);
+
+        // Update expense from 50,000 to 75,000 and change notes
+        $txId = $response->json('transaction.id');
+        $updateRes = $this->actingAs($user)->putJson("/api/transactions/{$txId}", [
+            'account_id' => $account->id,
+            'category_id' => $category->id,
+            'type' => 'expense',
+            'amount' => 75000,
+            'transaction_date' => now()->toDateTimeString(),
+            'notes' => 'Updated expense amount',
+        ]);
+
+        $updateRes->assertStatus(200)
+            ->assertJsonPath('transaction.amount', 75000)
+            ->assertJsonPath('transaction.notes', 'Updated expense amount');
+
+        $account->refresh();
+        $this->assertEquals($initialBalance - 75000, $account->current_balance);
     }
 
     public function test_50_30_20_allocation_calculation_and_auto_budgets(): void
