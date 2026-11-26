@@ -126,5 +126,54 @@ class PlanItApiTest extends TestCase
                 ],
             ]);
     }
+
+    public function test_category_crud_with_allocation_group_and_report_export_data(): void
+    {
+        $user = User::where('email', 'demo@planit.app')->first();
+
+        // 1. Create custom category with wants (30%)
+        $createRes = $this->actingAs($user)->postJson('/api/categories', [
+            'name' => 'Langganan Musik',
+            'type' => 'expense',
+            'allocation_group' => 'wants',
+            'color' => '#8B5CF6',
+        ]);
+
+        $createRes->assertStatus(201)
+            ->assertJsonPath('category.name', 'Langganan Musik')
+            ->assertJsonPath('category.allocation_group', 'wants');
+
+        $catId = $createRes->json('category.id');
+
+        // 2. Edit category to needs (50%) or savings (20%)
+        $updateRes = $this->actingAs($user)->putJson("/api/categories/{$catId}", [
+            'name' => 'Dana Tabungan Pendidikan',
+            'type' => 'expense',
+            'allocation_group' => 'savings',
+            'color' => '#10B981',
+        ]);
+
+        $updateRes->assertStatus(200)
+            ->assertJsonPath('category.name', 'Dana Tabungan Pendidikan')
+            ->assertJsonPath('category.allocation_group', 'savings')
+            ->assertJsonPath('category.effective_allocation_group', 'savings');
+
+        // 3. Delete category
+        $deleteRes = $this->actingAs($user)->deleteJson("/api/categories/{$catId}");
+        $deleteRes->assertStatus(200);
+
+        // 4. Verify /api/reports returns export fields (total_income, allocation_50_30_20, transactions)
+        $reportRes = $this->actingAs($user)->getJson('/api/reports');
+        $reportRes->assertStatus(200)
+            ->assertJsonStructure([
+                'month',
+                'year',
+                'total_income',
+                'total_expense',
+                'category_breakdown',
+                'allocation_50_30_20',
+                'transactions',
+            ]);
+    }
 }
 

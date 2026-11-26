@@ -77,16 +77,20 @@ class CategoryController extends Controller
     }
 
     /**
-     * Update the specified custom category.
+     * Update the specified category (including name, type, color, and 50/30/20 allocation_group).
      */
     public function update(Request $request, int $id): JsonResponse
     {
+        $userId = $request->user()->id;
         $category = Category::where('id', $id)
-            ->where('user_id', $request->user()->id)
+            ->where(function ($q) use ($userId) {
+                $q->whereNull('user_id')->orWhere('user_id', $userId);
+            })
             ->firstOrFail();
 
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
+            'type' => 'sometimes|required|in:income,expense',
             'allocation_group' => 'nullable|in:needs,wants,savings',
             'parent_id' => 'nullable|exists:categories,id',
             'icon' => 'nullable|string|max:50',
@@ -98,23 +102,26 @@ class CategoryController extends Controller
 
         return response()->json([
             'message' => 'Kategori berhasil diperbarui',
-            'category' => $category,
+            'category' => $category->fresh(),
         ]);
     }
 
     /**
-     * Remove or archive the specified custom category.
+     * Remove or archive the specified category.
      */
     public function destroy(Request $request, int $id): JsonResponse
     {
+        $userId = $request->user()->id;
         $category = Category::where('id', $id)
-            ->where('user_id', $request->user()->id)
+            ->where(function ($q) use ($userId) {
+                $q->whereNull('user_id')->orWhere('user_id', $userId);
+            })
             ->firstOrFail();
 
-        if ($category->transactions()->exists()) {
+        if ($category->transactions()->exists() || $category->children()->exists()) {
             $category->update(['is_active' => false]);
             return response()->json([
-                'message' => 'Kategori diarsipkan karena sudah digunakan dalam transaksi.',
+                'message' => 'Kategori diarsipkan karena sudah memiliki riwayat transaksi.',
             ]);
         }
 

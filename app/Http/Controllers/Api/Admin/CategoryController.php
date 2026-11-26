@@ -108,6 +108,7 @@ class CategoryController extends Controller
         $validated = $request->validate([
             'name' => 'sometimes|required|string|max:255',
             'type' => 'sometimes|required|in:income,expense',
+            'allocation_group' => 'nullable|in:needs,wants,savings',
             'parent_id' => 'nullable|exists:categories,id',
             'icon' => 'nullable|string|max:50',
             'color' => 'nullable|string|max:20',

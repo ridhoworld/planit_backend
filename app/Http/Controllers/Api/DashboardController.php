@@ -177,6 +177,7 @@ class DashboardController extends Controller
                 return [
                     'category_id' => $item->category_id,
                     'name' => $item->category->name ?? 'Lainnya',
+                    'allocation_group' => $item->category ? $item->category->effective_allocation_group : 'needs',
                     'color' => $item->category->color ?? '#EF4444',
                     'icon' => $item->category->icon ?? 'category',
                     'amount' => (float) $item->total_amount,
@@ -186,6 +187,11 @@ class DashboardController extends Controller
             ->values();
 
         $totalExpenseMonth = $categoryExpenses->sum('amount');
+        $totalIncomeMonth = (float) Transaction::where('user_id', $userId)
+            ->where('type', 'income')
+            ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->sum('amount');
+
         $categoryBreakdown = $categoryExpenses->map(function ($item) use ($totalExpenseMonth) {
             $item['percentage'] = $totalExpenseMonth > 0 ? round(($item['amount'] / $totalExpenseMonth) * 100, 1) : 0;
             return $item;
@@ -221,13 +227,28 @@ class DashboardController extends Controller
             ->where('is_active', true)
             ->get(['id', 'name', 'type', 'current_balance', 'color']);
 
+        // Monthly transactions for export
+        $monthTransactions = Transaction::where('user_id', $userId)
+            ->with(['account', 'targetAccount', 'category'])
+            ->whereBetween('transaction_date', [$startDate, $endDate])
+            ->orderBy('transaction_date', 'desc')
+            ->orderBy('id', 'desc')
+            ->get();
+
+        $allocation503020 = app(\App\Services\AllocationService::class)
+            ->calculateMonthlyAllocation($request->user(), $month, $year);
+
         return response()->json([
             'month' => $month,
             'year' => $year,
+            'total_income' => $totalIncomeMonth,
             'total_expense' => $totalExpenseMonth,
+            'net_cashflow' => $totalIncomeMonth - $totalExpenseMonth,
             'category_breakdown' => $categoryBreakdown,
             'monthly_trend' => $monthlyTrend,
             'accounts' => $accounts,
+            'allocation_50_30_20' => $allocation503020,
+            'transactions' => $monthTransactions,
         ]);
     }
 }

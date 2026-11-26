@@ -27,11 +27,6 @@ class Category extends Model
     public function getEffectiveAllocationGroupAttribute(): string
     {
         if (!empty($this->allocation_group) && in_array($this->allocation_group, ['needs', 'wants', 'savings'])) {
-            // Also check if specific subcategory name overrides generic parent group (e.g. "Kopi & Nongkrong" under "Makanan & Minuman")
-            $inferred = self::inferAllocationGroup($this->name, $this->type);
-            if ($this->parent_id !== null && $inferred !== 'needs') {
-                return $inferred;
-            }
             return $this->allocation_group;
         }
         return self::inferAllocationGroup($this->name, $this->type);
