@@ -222,10 +222,24 @@ class DashboardController extends Controller
             ];
         }
 
-        // Account balances
+        // Account balances & Net Worth summary for complete export
         $accounts = Account::where('user_id', $userId)
             ->where('is_active', true)
-            ->get(['id', 'name', 'type', 'current_balance', 'color']);
+            ->get(['id', 'name', 'type', 'initial_balance', 'current_balance', 'credit_limit', 'color']);
+
+        $totalLiquidBalance = (float) $accounts->where('type', '!=', 'credit_card')->sum('current_balance');
+        $totalCreditDebt = (float) $accounts->where('type', 'credit_card')->sum('current_balance');
+
+        $investments = Investment::where('user_id', $userId)->get();
+        $totalInvestmentValue = (float) $investments->sum('current_value');
+
+        $debts = Debt::where('user_id', $userId)->where('remaining_amount', '>', 0)->get();
+        $totalPayable = (float) $debts->where('type', 'payable')->sum('remaining_amount');
+        $totalReceivable = (float) $debts->where('type', 'receivable')->sum('remaining_amount');
+
+        $netWorth = $totalLiquidBalance + $totalInvestmentValue + $totalReceivable - $totalPayable - $totalCreditDebt;
+
+        $goals = FinancialGoal::where('user_id', $userId)->get(['id', 'name', 'target_amount', 'current_amount', 'deadline', 'status']);
 
         // Monthly transactions for export
         $monthTransactions = Transaction::where('user_id', $userId)
@@ -241,12 +255,20 @@ class DashboardController extends Controller
         return response()->json([
             'month' => $month,
             'year' => $year,
+            'total_balance' => $totalLiquidBalance,
+            'net_worth' => $netWorth,
+            'total_investments' => $totalInvestmentValue,
+            'total_debts' => $totalPayable,
+            'total_receivables' => $totalReceivable,
             'total_income' => $totalIncomeMonth,
             'total_expense' => $totalExpenseMonth,
             'net_cashflow' => $totalIncomeMonth - $totalExpenseMonth,
             'category_breakdown' => $categoryBreakdown,
             'monthly_trend' => $monthlyTrend,
             'accounts' => $accounts,
+            'goals' => $goals,
+            'debts' => $debts,
+            'investments' => $investments,
             'allocation_50_30_20' => $allocation503020,
             'transactions' => $monthTransactions,
         ]);
